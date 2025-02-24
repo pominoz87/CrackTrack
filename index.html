@@ -83,7 +83,7 @@
     const githubUsername = "pominoz87";
     const githubRepo = "CrackTrack";      // Repository to store data.json
     const githubFilePath = "data.json";     // File path in repo
-    // Use your provided token (note: this is insecure to expose publicly)
+    // Provided token (note: exposing a token client‑side is insecure for production)
     const githubToken = "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";
     const githubApiUrl = `https://api.github.com/repos/${githubUsername}/${githubRepo}/contents/${githubFilePath}`;
 
@@ -333,7 +333,7 @@
         html += "<div><p>Photo " + (index + 1) + " (Note: " + (marker.notes[index] || "No note") + "):</p>";
         html += "<img src='" + imgData + "' style='max-width:100%;'/></div><hr>";
       });
-      // Instead of using onclick inline, we generate a button and then attach an event listener.
+      // Create a delete button and attach an event listener.
       html += "<button id='deleteButton'>Delete this Crack Marker</button>";
       html += "<script>";
       html += "document.getElementById('deleteButton').addEventListener('click', function(){";
@@ -348,8 +348,9 @@
       win.document.write(html);
     }
 
-    // Delete a crack marker.
+    // Delete a crack marker and update the canvas.
     function deleteMarker(markerIndex) {
+      console.log("deleteMarker called with index:", markerIndex);
       if (currentEquipmentIndex !== null) {
         let markers = equipmentList[currentEquipmentIndex].markers;
         if (markerIndex >= 0 && markerIndex < markers.length) {
@@ -357,6 +358,7 @@
             markers.splice(markerIndex, 1);
             saveData();
             drawCanvas();
+            console.log("Marker deleted and canvas updated.");
           }
         }
       }
