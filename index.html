@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Equipment Crack Catalogue</title>
+  <title>Primary Rejects Underpan Screen Crack Catalogue</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
@@ -16,28 +16,44 @@
       border: 1px solid #ccc;
     }
     canvas { cursor: pointer; }
+    /* Instruction styling */
+    #instructions { margin-top: 10px; padding: 10px; background: #f4f4f4; }
   </style>
 </head>
 <body>
-  <!-- Main Equipment Selection Screen -->
+  <!-- Main Index Screen -->
   <div id="mainScreen" class="active">
-    <h1>Select Equipment</h1>
-    <p>Edit the equipment names if desired and click "Work on Equipment".</p>
+    <h1>Primary Rejects Underpan Screen Crack Catalogue</h1>
+    <!-- Overview image -->
+    <img src="MainImage.jpg" alt="Overview of Equipment Locations" style="max-width:100%;"><br><br>
+    <!-- Instructions -->
+    <div id="instructions">
+      <strong>Instructions:</strong>
+      <ol>
+        <li>Select one of the four equipment pieces below. (Equipment names are fixed.)</li>
+        <li>On the equipment detail screen, first upload the main (zoomed‑out) image for that equipment.</li>
+        <li>Then click on the image where a crack is located to add a crack photo. If you click near an existing crack marker, you’ll be given the option to add another photo (with a note) or view existing details.</li>
+        <li>Every crack location is automatically assigned a unique Crack ID, and any notes you add will be saved.</li>
+        <li>Your data is stored locally so you can work offline and it will update once you’re back online.</li>
+      </ol>
+    </div>
+    <br>
+    <!-- Equipment selection (non-editable) -->
     <div class="equipment-item" data-index="0">
-      <input type="text" id="eqName0" value="Equipment 1">
-      <button onclick="selectEquipment(0)">Work on Equipment 1</button>
+      <span id="eqName0">224CH308</span>
+      <button onclick="selectEquipment(0)">Work on Equipment 224CH308</button>
     </div>
     <div class="equipment-item" data-index="1">
-      <input type="text" id="eqName1" value="Equipment 2">
-      <button onclick="selectEquipment(1)">Work on Equipment 2</button>
+      <span id="eqName1">224CH306</span>
+      <button onclick="selectEquipment(1)">Work on Equipment 224CH306</button>
     </div>
     <div class="equipment-item" data-index="2">
-      <input type="text" id="eqName2" value="Equipment 3">
-      <button onclick="selectEquipment(2)">Work on Equipment 3</button>
+      <span id="eqName2">224CH326</span>
+      <button onclick="selectEquipment(2)">Work on Equipment 224CH326</button>
     </div>
     <div class="equipment-item" data-index="3">
-      <input type="text" id="eqName3" value="Equipment 4">
-      <button onclick="selectEquipment(3)">Work on Equipment 4</button>
+      <span id="eqName3">224CH328</span>
+      <button onclick="selectEquipment(3)">Work on Equipment 224CH328</button>
     </div>
   </div>
 
@@ -45,7 +61,7 @@
   <div id="equipmentScreen">
     <button onclick="goBack()">Back to Equipment Selection</button>
     <h2 id="equipmentTitle"></h2>
-    <p>Upload the main (GA/zoomed‑out) equipment image, then click on areas to add crack photos.</p>
+    <p>Upload the main (GA/zoomed‑out) image for this equipment. Then click on areas to catalogue cracks.</p>
     <!-- Main equipment image upload -->
     <input type="file" id="mainImageInput" accept="image/*">
     <br><br>
@@ -59,17 +75,85 @@
 
   <script>
     /***********************
-     * Data and Global Variables
+     * Offline and Persistence Setup
      ***********************/
-    // Four equipment items, each with a name, main image, and markers (crack photo locations)
+    // Service Worker inline code (using a Blob)
+    var swCode = `
+      const CACHE_NAME = 'crack-catalogue-cache-v1';
+      const urlsToCache = [
+        '/',
+        '/index.html',
+        '/MainImage.jpg'
+      ];
+      self.addEventListener('install', function(event) {
+        event.waitUntil(
+          caches.open(CACHE_NAME).then(function(cache) {
+            console.log('Opened cache');
+            return cache.addAll(urlsToCache);
+          })
+        );
+      });
+      self.addEventListener('fetch', function(event) {
+        event.respondWith(
+          caches.match(event.request).then(function(response) {
+            return response || fetch(event.request);
+          })
+        );
+      });
+      self.addEventListener('activate', function(event) {
+        event.waitUntil(
+          caches.keys().then(function(cacheNames) {
+            return Promise.all(
+              cacheNames.map(function(cacheName) {
+                if (cacheName !== CACHE_NAME) {
+                  return caches.delete(cacheName);
+                }
+              })
+            );
+          })
+        );
+      });
+    `;
+    if ('serviceWorker' in navigator) {
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swBlobUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swBlobUrl).then(function(registration) {
+        console.log('ServiceWorker registered with scope: ', registration.scope);
+      }).catch(function(error) {
+        console.log('ServiceWorker registration failed: ', error);
+      });
+    }
+
+    // Local persistence: Save and load data from localStorage.
+    function saveData() {
+      localStorage.setItem("equipmentList", JSON.stringify(equipmentList));
+      localStorage.setItem("crackCounter", crackCounter);
+    }
+    function loadData() {
+      const storedEquipment = localStorage.getItem("equipmentList");
+      if(storedEquipment) {
+        equipmentList = JSON.parse(storedEquipment);
+      }
+      const storedCounter = localStorage.getItem("crackCounter");
+      crackCounter = storedCounter ? parseInt(storedCounter, 10) : 1;
+    }
+
+    /***********************
+     * Global Data and Variables
+     ***********************/
+    // Define four equipment items with fixed names.
     var equipmentList = [
-      { name: "Equipment 1", mainImage: null, markers: [] },
-      { name: "Equipment 2", mainImage: null, markers: [] },
-      { name: "Equipment 3", mainImage: null, markers: [] },
-      { name: "Equipment 4", mainImage: null, markers: [] }
+      { name: "224CH308", mainImage: null, markers: [] },
+      { name: "224CH306", mainImage: null, markers: [] },
+      { name: "224CH326", mainImage: null, markers: [] },
+      { name: "224CH328", mainImage: null, markers: [] }
     ];
-    var currentEquipmentIndex = null; // Index of equipment being worked on
-    var currentMarkerIndex = null;      // If adding to an existing marker
+    var currentEquipmentIndex = null; // Which equipment is active
+    var currentMarkerIndex = null;      // For adding to an existing marker
+    var crackCounter = 1; // Global counter to assign unique Crack IDs
+
+    // Try loading any saved data on page load.
+    loadData();
 
     /***********************
      * Element References
@@ -88,19 +172,14 @@
      ***********************/
     function selectEquipment(index) {
       currentEquipmentIndex = index;
-      // Save updated equipment name from the input field
-      var nameInput = document.getElementById('eqName' + index);
-      equipmentList[index].name = nameInput.value;
       equipmentTitle.textContent = equipmentList[index].name;
-      // Switch views
+      // Switch view: hide mainScreen, show equipmentScreen.
       mainScreen.classList.remove('active');
       equipmentScreen.classList.add('active');
-
-      // Load the main image if already set
+      // Load the main image if available; otherwise, initialize a blank canvas.
       if(equipmentList[index].mainImage) {
         mainImage.src = equipmentList[index].mainImage;
       } else {
-        // If no main image, initialize an empty canvas (default dimensions)
         mainImage = new Image();
         canvas.width = 600;
         canvas.height = 400;
@@ -114,10 +193,11 @@
     }
 
     function goBack() {
-      // Save the current main image back into the equipment data
+      // Save the current main image into the equipment data.
       if(currentEquipmentIndex !== null) {
         equipmentList[currentEquipmentIndex].mainImage = mainImage.src;
       }
+      saveData();
       currentEquipmentIndex = null;
       mainScreen.classList.add('active');
       equipmentScreen.classList.remove('active');
@@ -126,7 +206,7 @@
     /***********************
      * Equipment Detail Functions
      ***********************/
-    // Upload a new main image
+    // Upload a new main image for the equipment.
     mainImageInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if(file) {
@@ -135,13 +215,14 @@
           mainImage.src = event.target.result;
           if(currentEquipmentIndex !== null) {
             equipmentList[currentEquipmentIndex].mainImage = mainImage.src;
+            saveData();
           }
         };
         reader.readAsDataURL(file);
       }
     });
 
-    // Draw the main image and markers on the canvas
+    // Redraw the canvas with the main image and markers.
     function drawCanvas() {
       if(mainImage.src) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -157,78 +238,86 @@
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
           ctx.stroke();
+          // Optionally, draw the Crack ID near the marker.
+          ctx.font = "12px Arial";
+          ctx.fillStyle = "red";
+          ctx.fillText(marker.crackID, marker.x + 12, marker.y + 4);
         });
       }
     }
 
-    // Handle canvas clicks for adding or viewing crack photos
+    // Handle clicks on the canvas to add or view crack photos.
     canvas.addEventListener('click', (e) => {
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
       if(currentEquipmentIndex === null) return;
-
       let markers = equipmentList[currentEquipmentIndex].markers;
-      // Check if click is near an existing marker (within 15 pixels)
+      // Check if click is near an existing marker (within 15px).
       for(let i = 0; i < markers.length; i++){
         let marker = markers[i];
         const dx = marker.x - clickX;
         const dy = marker.y - clickY;
         if(Math.sqrt(dx*dx + dy*dy) <= 15){
-          // Found an existing marker
-          if(confirm("This area already has " + marker.images.length + " photo(s).\nClick OK to add another photo, or Cancel to view them.")){
-            // Add a new photo to this marker
+          // Existing marker found.
+          if(confirm("Crack " + marker.crackID + " already has " + marker.images.length + " photo(s) with notes.\nClick OK to add another photo, or Cancel to view details.")){
             currentMarkerIndex = i;
             crackImageInput.click();
           } else {
-            // View existing photos
-            viewMarkerImages(marker);
+            viewMarkerDetails(marker);
           }
           return;
         }
       }
-      // No nearby marker—create a new one.
-      currentMarkerIndex = null; // indicates a new marker
+      // No marker near the click—create a new one.
+      currentMarkerIndex = null;
       crackImageInput.dataset.x = clickX;
       crackImageInput.dataset.y = clickY;
       crackImageInput.click();
     });
 
-    // Handle crack image upload (for new markers or existing ones)
+    // Handle crack image upload (for both new markers and existing ones).
     crackImageInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if(file){
         const reader = new FileReader();
         reader.onload = (event) => {
           let imageData = event.target.result;
+          let note = prompt("Enter a note for this crack image:", "");
           if(currentEquipmentIndex === null) return;
           let markers = equipmentList[currentEquipmentIndex].markers;
           if(currentMarkerIndex !== null) {
-            // Append to an existing marker’s images array
+            // Add to an existing marker.
             markers[currentMarkerIndex].images.push(imageData);
+            markers[currentMarkerIndex].notes.push(note || "");
           } else {
-            // Create a new marker with this image
+            // Create a new marker with a unique Crack ID.
             let newMarker = {
+              crackID: "CRACK-" + crackCounter++,
               x: parseFloat(crackImageInput.dataset.x),
               y: parseFloat(crackImageInput.dataset.y),
-              images: [imageData]
+              images: [imageData],
+              notes: [note || ""]
             };
             markers.push(newMarker);
           }
           drawCanvas();
+          saveData();
         };
         reader.readAsDataURL(file);
       }
     });
 
-    // Function to open a new window showing all images at a marker
-    function viewMarkerImages(marker) {
-      let html = "<html><head><title>Crack Photos</title></head><body>";
+    // Open a new window showing all images, Crack ID, and notes for a marker.
+    function viewMarkerDetails(marker) {
+      let html = "<html><head><title>Crack " + marker.crackID + " Details</title></head><body>";
+      html += "<h2>Crack ID: " + marker.crackID + "</h2>";
       marker.images.forEach((imgData, index) => {
-        html += "<div><p>Photo " + (index+1) + ":</p><img src='" + imgData + "' style='max-width:100%;'/></div><hr>";
+        html += "<div><p>Photo " + (index+1) + " (Note: " + (marker.notes[index] || "No note") + "):</p>";
+        html += "<img src='" + imgData + "' style='max-width:100%;'/></div><hr>";
       });
       html += "</body></html>";
-      let win = window.open("", "Marker Photos", "width=600,height=600");
+      let win = window.open("", "Crack Details", "width=600,height=600");
       win.document.write(html);
     }
   </script>
