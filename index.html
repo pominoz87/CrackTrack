@@ -16,8 +16,8 @@
       border: 1px solid #ccc;
     }
     canvas { cursor: pointer; }
-    /* Instruction styling */
     #instructions { margin-top: 10px; padding: 10px; background: #f4f4f4; }
+    button { margin: 5px; }
   </style>
 </head>
 <body>
@@ -31,14 +31,14 @@
       <strong>Instructions:</strong>
       <ol>
         <li>Select one of the four equipment pieces below. (Equipment names are fixed.)</li>
-        <li>On the equipment detail screen, first upload the main (zoomed‑out) image for that equipment.</li>
-        <li>Then click on the image where a crack is located to add a crack photo. If you click near an existing crack marker, you’ll be given the option to add another photo (with a note) or view existing details.</li>
-        <li>Every crack location is automatically assigned a unique Crack ID, and any notes you add will be saved.</li>
-        <li>Your data is stored locally so you can work offline and it will update once you’re back online.</li>
+        <li>On the equipment detail screen, upload the main (zoomed‑out) image for that equipment if not already set. Once set, it cannot be changed.</li>
+        <li>Click on the image where a crack is located to catalogue crack photos. If you click near an existing crack marker, you can add another photo/notes or view details.</li>
+        <li>Each crack location is assigned a unique Crack ID and any notes you enter are saved.</li>
+        <li>Your data is stored locally and works offline. Use the “Sync Data to GitHub” button below to push your updates to your GitHub repository. (Note: Data in one browser won’t appear in another unless synced via GitHub.)</li>
       </ol>
     </div>
     <br>
-    <!-- Equipment selection (non-editable) -->
+    <!-- Equipment selection (fixed names) -->
     <div class="equipment-item" data-index="0">
       <span id="eqName0">224CH308</span>
       <button onclick="selectEquipment(0)">Work on Equipment 224CH308</button>
@@ -55,14 +55,17 @@
       <span id="eqName3">224CH328</span>
       <button onclick="selectEquipment(3)">Work on Equipment 224CH328</button>
     </div>
+    <br>
+    <!-- Sync Data button -->
+    <button onclick="syncData()">Sync Data to GitHub</button>
   </div>
 
   <!-- Equipment Detail Screen -->
   <div id="equipmentScreen">
     <button onclick="goBack()">Back to Equipment Selection</button>
     <h2 id="equipmentTitle"></h2>
-    <p>Upload the main (GA/zoomed‑out) image for this equipment. Then click on areas to catalogue cracks.</p>
-    <!-- Main equipment image upload -->
+    <p>Upload the main (GA/zoomed‑out) image for this equipment (once set, it cannot be changed). Then click on areas to catalogue cracks.</p>
+    <!-- Main equipment image upload (hidden if already set) -->
     <input type="file" id="mainImageInput" accept="image/*">
     <br><br>
     <div id="canvasContainer">
@@ -75,9 +78,19 @@
 
   <script>
     /***********************
+     * GitHub Sync Configuration
+     ***********************/
+    // Edit these variables to match your GitHub repository details.
+    const githubUsername = "pominoz87";
+    const githubRepo = "CrackTrack";      // The repository where data.json will be stored.
+    const githubFilePath = "data.json";       // File path in the repository to store the sync data.
+    const githubToken = "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";   // Personal Access Token with repo write permissions.
+    const githubApiUrl = `https://api.github.com/repos/${pominoz87}/${CrackTrack}/contents/${data.json}`;
+
+    /***********************
      * Offline and Persistence Setup
      ***********************/
-    // Service Worker inline code (using a Blob)
+    // Service Worker inline code (using a Blob) to cache necessary files for offline use.
     var swCode = `
       const CACHE_NAME = 'crack-catalogue-cache-v1';
       const urlsToCache = [
@@ -124,7 +137,7 @@
       });
     }
 
-    // Local persistence: Save and load data from localStorage.
+    // Local persistence using localStorage.
     function saveData() {
       localStorage.setItem("equipmentList", JSON.stringify(equipmentList));
       localStorage.setItem("crackCounter", crackCounter);
@@ -150,9 +163,9 @@
     ];
     var currentEquipmentIndex = null; // Which equipment is active
     var currentMarkerIndex = null;      // For adding to an existing marker
-    var crackCounter = 1; // Global counter to assign unique Crack IDs
+    var crackCounter = 1; // Global counter for unique Crack IDs
 
-    // Try loading any saved data on page load.
+    // Load any saved data on page load.
     loadData();
 
     /***********************
@@ -179,11 +192,13 @@
       // Load the main image if available; otherwise, initialize a blank canvas.
       if(equipmentList[index].mainImage) {
         mainImage.src = equipmentList[index].mainImage;
+        mainImageInput.style.display = "none"; // Already set: disable further uploads.
       } else {
         mainImage = new Image();
         canvas.width = 600;
         canvas.height = 400;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        mainImageInput.style.display = "block";
       }
       mainImage.onload = function(){
         canvas.width = mainImage.width;
@@ -193,7 +208,7 @@
     }
 
     function goBack() {
-      // Save the current main image into the equipment data.
+      // Save the current main image into equipment data.
       if(currentEquipmentIndex !== null) {
         equipmentList[currentEquipmentIndex].mainImage = mainImage.src;
       }
@@ -201,28 +216,32 @@
       currentEquipmentIndex = null;
       mainScreen.classList.add('active');
       equipmentScreen.classList.remove('active');
+      mainImageInput.style.display = "block";
     }
 
     /***********************
      * Equipment Detail Functions
      ***********************/
-    // Upload a new main image for the equipment.
+    // Upload a new main image (only if not already set).
     mainImageInput.addEventListener('change', (e) => {
+      if(equipmentList[currentEquipmentIndex].mainImage) {
+        alert("Main image is already set and cannot be changed.");
+        return;
+      }
       const file = e.target.files[0];
       if(file) {
         const reader = new FileReader();
         reader.onload = (event) => {
           mainImage.src = event.target.result;
-          if(currentEquipmentIndex !== null) {
-            equipmentList[currentEquipmentIndex].mainImage = mainImage.src;
-            saveData();
-          }
+          equipmentList[currentEquipmentIndex].mainImage = mainImage.src;
+          saveData();
+          mainImageInput.style.display = "none";
         };
         reader.readAsDataURL(file);
       }
     });
 
-    // Redraw the canvas with the main image and markers.
+    // Draw the main image and markers on the canvas.
     function drawCanvas() {
       if(mainImage.src) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -232,13 +251,13 @@
       }
       if(currentEquipmentIndex !== null) {
         var markers = equipmentList[currentEquipmentIndex].markers;
-        markers.forEach(marker => {
+        markers.forEach((marker) => {
           ctx.beginPath();
           ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
           ctx.stroke();
-          // Optionally, draw the Crack ID near the marker.
+          // Draw the Crack ID near the marker.
           ctx.font = "12px Arial";
           ctx.fillStyle = "red";
           ctx.fillText(marker.crackID, marker.x + 12, marker.y + 4);
@@ -246,7 +265,7 @@
       }
     }
 
-    // Handle clicks on the canvas to add or view crack photos.
+    // Handle clicks on the canvas to add or view crack markers.
     canvas.addEventListener('click', (e) => {
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -264,19 +283,19 @@
             currentMarkerIndex = i;
             crackImageInput.click();
           } else {
-            viewMarkerDetails(marker);
+            viewMarkerDetails(i);
           }
           return;
         }
       }
-      // No marker near the click—create a new one.
+      // No nearby marker—create a new one.
       currentMarkerIndex = null;
       crackImageInput.dataset.x = clickX;
       crackImageInput.dataset.y = clickY;
       crackImageInput.click();
     });
 
-    // Handle crack image upload (for both new markers and existing ones).
+    // Handle crack image upload (for new markers or additional photos).
     crackImageInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if(file){
@@ -308,17 +327,88 @@
       }
     });
 
-    // Open a new window showing all images, Crack ID, and notes for a marker.
-    function viewMarkerDetails(marker) {
+    // View marker details with an option to delete the marker.
+    function viewMarkerDetails(markerIndex) {
+      let marker = equipmentList[currentEquipmentIndex].markers[markerIndex];
       let html = "<html><head><title>Crack " + marker.crackID + " Details</title></head><body>";
       html += "<h2>Crack ID: " + marker.crackID + "</h2>";
       marker.images.forEach((imgData, index) => {
         html += "<div><p>Photo " + (index+1) + " (Note: " + (marker.notes[index] || "No note") + "):</p>";
         html += "<img src='" + imgData + "' style='max-width:100%;'/></div><hr>";
       });
+      // Button to delete this entire crack marker.
+      html += "<button onclick='window.opener.deleteMarker(" + markerIndex + "); window.close();'>Delete this Crack Marker</button>";
       html += "</body></html>";
       let win = window.open("", "Crack Details", "width=600,height=600");
       win.document.write(html);
+    }
+
+    // Delete a crack marker from the current equipment.
+    function deleteMarker(markerIndex) {
+      if(currentEquipmentIndex !== null) {
+        let markers = equipmentList[currentEquipmentIndex].markers;
+        if(markerIndex >= 0 && markerIndex < markers.length) {
+          if(confirm("Are you sure you want to delete crack marker " + markers[markerIndex].crackID + "?")) {
+            markers.splice(markerIndex, 1);
+            saveData();
+            drawCanvas();
+          }
+        }
+      }
+    }
+
+    /***********************
+     * GitHub Sync Function
+     ***********************/
+    async function syncData() {
+      // Prepare your data to sync.
+      const dataToSync = {
+        equipmentList: equipmentList,
+        crackCounter: crackCounter,
+        timestamp: new Date().toISOString()
+      };
+      const jsonData = JSON.stringify(dataToSync, null, 2);
+      // Base64-encode the JSON data.
+      const encodedContent = btoa(unescape(encodeURIComponent(jsonData)));
+      const commitMessage = "Sync data from client on " + new Date().toLocaleString();
+
+      // First, check if the file already exists in the repo (to get its sha).
+      let sha = "";
+      try {
+        const getResponse = await fetch(githubApiUrl, {
+          headers: { "Authorization": "token " + githubToken }
+        });
+        if(getResponse.ok) {
+          const fileData = await getResponse.json();
+          sha = fileData.sha;
+        }
+      } catch (err) {
+        console.error("Error fetching file data: ", err);
+      }
+
+      // Now, send a PUT request to update (or create) the file.
+      const payload = {
+        message: commitMessage,
+        content: encodedContent,
+        sha: sha
+      };
+      try {
+        const putResponse = await fetch(githubApiUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "token " + githubToken
+          },
+          body: JSON.stringify(payload)
+        });
+        if(putResponse.ok) {
+          alert("Sync successful!");
+        } else {
+          alert("Sync failed! " + (await putResponse.text()));
+        }
+      } catch (err) {
+        alert("Sync error: " + err);
+      }
     }
   </script>
 </body>
