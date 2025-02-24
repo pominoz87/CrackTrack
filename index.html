@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Equipment Crack Catalogue</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #canvasContainer {
+      position: relative;
+      display: inline-block;
+      border: 1px solid #ccc;
+    }
+    canvas {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Equipment Crack Catalogue</h1>
+  <p>Upload the main equipment image and then click on an area to add a crack photo.</p>
+  <!-- Main equipment image upload -->
+  <input type="file" id="mainImageInput" accept="image/*">
+  <br><br>
+  <div id="canvasContainer">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+  <!-- Hidden input for crack images -->
+  <input type="file" id="crackImageInput" accept="image/*" style="display:none">
+  
+  <script>
+    // Register the Service Worker for offline functionality
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').then(function(registration) {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }, function(err) {
+          console.log('ServiceWorker registration failed: ', err);
+        });
+      });
+    }
+
+    const mainImageInput = document.getElementById('mainImageInput');
+    const crackImageInput = document.getElementById('crackImageInput');
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let mainImage = new Image();
+    let markers = []; // Each marker is { x, y, image }
+
+    // Load the main equipment image when selected
+    mainImageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          mainImage.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Once the main image is loaded, resize the canvas and draw the image
+    mainImage.onload = () => {
+      canvas.width = mainImage.width;
+      canvas.height = mainImage.height;
+      drawCanvas();
+    };
+
+    // Redraw the main image and any markers
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(mainImage, 0, 0);
+      markers.forEach(marker => {
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    // Handle clicks on the canvas:
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      // Check if an existing marker was clicked (within a 10px radius)
+      for (let marker of markers) {
+        const dx = marker.x - clickX;
+        const dy = marker.y - clickY;
+        if (Math.sqrt(dx * dx + dy * dy) <= 10) {
+          // Open the associated crack image in a new window
+          const imgWindow = window.open("", "Crack Image", "width=500,height=500");
+          imgWindow.document.write("<img src='" + marker.image + "' style='max-width:100%;'/>");
+          return;
+        }
+      }
+
+      // No marker was clicked; store the click coordinates and trigger the file input
+      crackImageInput.dataset.x = clickX;
+      crackImageInput.dataset.y = clickY;
+      crackImageInput.click();
+    });
+
+    // When a crack image is selected, add a new marker and redraw the canvas
+    crackImageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const marker = {
+            x: parseFloat(crackImageInput.dataset.x),
+            y: parseFloat(crackImageInput.dataset.y),
+            image: event.target.result
+          };
+          markers.push(marker);
+          drawCanvas();
+        }
+        reader.readAsDataURL(file);
+      }
+    });
+  </script>
+</body>
+</html>
